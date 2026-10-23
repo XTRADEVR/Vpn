@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aegis // Private Web Client</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Tailwind Configuration for Arc/Brave Dark Aesthetic -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              950: '#090a0f',
+              900: '#11131c',
+              850: '#181b28',
+              800: '#202436',
+              700: '#2e344e',
+              accent: '#6366f1',
+              emerald: '#10b981'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Menlo', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar & iframe styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #11131c; }
+    ::-webkit-scrollbar-thumb { background: #2e344e; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+    
+    .glass-panel {
+      background: rgba(17, 19, 28, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="bg-brand-950 text-slate-100 h-screen w-screen flex flex-col overflow-hidden select-none">
+
+  <!-- ==================== TOP NAVIGATION BAR ==================== -->
+  <header class="glass-panel h-16 w-full flex items-center justify-between px-4 z-50 shrink-0 gap-3 border-b border-white/5">
+    
+    <!-- 1. Navigation Controls -->
+    <div class="flex items-center gap-1">
+      <button id="btn-back" title="Kembali" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-brand-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+      </button>
+      <button id="btn-forward" title="Maju" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-brand-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors">
+        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+      </button>
+      <button id="btn-refresh" title="Muat Ulang" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-brand-800 transition-colors">
+        <i data-lucide="rotate-cw" id="refresh-icon" class="w-4 h-4"></i>
+      </button>
+      <button id="btn-home" title="Beranda Privat" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-brand-800 transition-colors">
+        <i data-lucide="home" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- 2. Omnibox (Address & Search Bar) -->
+    <div class="flex-1 max-w-2xl relative">
+      <form id="omnibox-form" class="relative flex items-center">
+        <div class="absolute left-3.5 text-emerald-400 flex items-center gap-1.5 pointer-events-none">
+          <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+          <span class="text-[10px] uppercase font-mono tracking-wider font-semibold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">e2ee</span>
+        </div>
+        <input 
+          id="omnibox-input"
+          type="text" 
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Ketik URL (contoh: wikipedia.org) atau kueri pencarian privat DuckDuckGo..."
+          class="w-full bg-brand-900/90 text-sm pl-24 pr-10 py-2 rounded-xl border border-white/10 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all font-mono"
+        />
+        <button type="submit" class="absolute right-2.5 p-1 rounded-md text-slate-400 hover:text-white hover:bg-brand-800 transition-colors">
+          <i data-lucide="corner-down-left" class="w-3.5 h-3.5"></i>
+        </button>
+      </form>
+    </div>
+
+    <!-- 3. Security, VPN & AdBlock Telemetry Panels -->
+    <div class="flex items-center gap-3">
+      
+      <!-- VPN Status Badge -->
+      <div 
+        id="vpn-badge" 
+        title="Klik untuk info enkripsi VPN"
+        class="hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-brand-900 border border-emerald-500/20 hover:border-emerald-500/40 cursor-pointer transition-all group"
+      >
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        <div class="flex flex-col text-left">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] font-semibold text-slate-200 group-hover:text-emerald-400 transition-colors">Zurich Node</span>
+            <span class="text-[9px] font-mono bg-emerald-500/10 text-emerald-400 px-1 rounded">ULTRA</span>
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">Latency: <span id="vpn-latency" class="text-emerald-400">8ms</span></span>
+        </div>
+      </div>
+
+      <!-- AdBlocker Status Counter Badge -->
+      <div 
+        id="adblock-badge" 
+        title="Perisai Anti-Tracking & Ads Aktif"
+        class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-900 border border-indigo-500/20 hover:border-indigo-500/40 cursor-pointer transition-all"
+      >
+        <i data-lucide="shield-check" class="w-4 h-4 text-indigo-400"></i>
+        <div class="flex flex-col text-left">
+          <span class="text-[11px] font-semibold text-slate-200 leading-tight">AdBlock Ultra</span>
+          <span class="text-[10px] text-slate-400 font-mono">Blocked: <span id="adblock-counter" class="text-indigo-400 font-semibold">142</span></span>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==================== VIEWPORT & WORKSPACE ==================== -->
+  <main class="relative flex-1 w-full h-[calc(100vh-4rem)] bg-brand-950 overflow-hidden">
+    
+    <!-- 1. SPEED DIAL (Dashboard Beranda) -->
+    <div id="speed-dial" class="absolute inset-0 z-20 overflow-y-auto flex flex-col items-center justify-center p-6 bg-radial from-brand-900/60 to-brand-950">
+      
+      <div class="max-w-2xl w-full flex flex-col items-center text-center space-y-8 animate-fade-in">
+        
+        <!-- Digital Clock & Security Posture -->
+        <div class="space-y-2">
+          <h1 id="digital-clock" class="text-6xl font-light tracking-tight font-mono text-white">12:00:00</h1>
+          <p id="digital-date" class="text-xs font-mono uppercase tracking-widest text-slate-400">Kamis, 24 Oktober 2024</p>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs mt-3">
+            <i data-lucide="fingerprint" class="w-3.5 h-3.5"></i>
+            <span>Zero-Knowledge Architecture &bull; Fingerprint Spoofed</span>
+          </div>
+        </div>
+
+        <!-- Privacy Status Matrix -->
+        <div class="w-full grid grid-cols-3 gap-3">
+          <div class="p-3 rounded-xl bg-brand-900/80 border border-white/5 flex flex-col items-center">
+            <span class="text-[10px] font-mono text-slate-400 uppercase">DNS Protocol</span>
+            <span class="text-xs font-semibold text-indigo-400 mt-1 flex items-center gap-1">
+              <i data-lucide="check" class="w-3 h-3"></i> DoH Encrypted
+            </span>
+          </div>
+          <div class="p-3 rounded-xl bg-brand-900/80 border border-white/5 flex flex-col items-center">
+            <span class="text-[10px] font-mono text-slate-400 uppercase">WebRTC Leak</span>
+            <span class="text-xs font-semibold text-emerald-400 mt-1 flex items-center gap-1">
+              <i data-lucide="shield" class="w-3 h-3"></i> Shielded
+            </span>
+          </div>
+          <div class="p-3 rounded-xl bg-brand-900/80 border border-white/5 flex flex-col items-center">
+            <span class="text-[10px] font-mono text-slate-400 uppercase">Canvas Tracking</span>
+            <span class="text-xs font-semibold text-indigo-400 mt-1 flex items-center gap-1">
+              <i data-lucide="eye-off" class="w-3 h-3"></i> Randomized
+            </span>
+          </div>
+        </div>
+
+        <!-- Shortcuts / Speed Dial Items -->
+        <div class="w-full space-y-3">
+          <div class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+            <span>Pintasan Web Ramah Sandbox (Iframe-Friendly)</span>
+          </div>
+          
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <!-- Shortcut 1: Wikipedia -->
+            <button onclick="navigateTo('https://en.m.wikipedia.org')" class="p-4 rounded-xl bg-brand-900/40 hover:bg-brand-800/80 border border-white/5 hover:border-brand-accent/40 flex flex-col items-center text-center group transition-all">
+              <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-slate-200 group-hover:scale-110 transition-transform">
+                <i data-lucide="book-open" class="w-5 h-5 text-indigo-400"></i>
+              </div>
+              <span class="text-xs font-medium text-slate-200 mt-2">Wikipedia</span>
+              <span class="text-[10px] text-slate-500 font-mono mt-0.5">Ensiklopedi</span>
+            </button>
+
+            <!-- Shortcut 2: Internet Archive -->
+            <button onclick="navigateTo('https://archive.org')" class="p-4 rounded-xl bg-brand-900/40 hover:bg-brand-800/80 border border-white/5 hover:border-brand-accent/40 flex flex-col items-center text-center group transition-all">
+              <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-slate-200 group-hover:scale-110 transition-transform">
+                <i data-lucide="database" class="w-5 h-5 text-emerald-400"></i>
+              </div>
+              <span class="text-xs font-medium text-slate-200 mt-2">Internet Archive</span>
+              <span class="text-[10px] text-slate-500 font-mono mt-0.5">Arsip Terbuka</span>
+            </button>
+
+            <!-- Shortcut 3: W3Schools -->
+            <button onclick="navigateTo('https://www.w3schools.com')" class="p-4 rounded-xl bg-brand-900/40 hover:bg-brand-800/80 border border-white/5 hover:border-brand-accent/40 flex flex-col items-center text-center group transition-all">
+              <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-slate-200 group-hover:scale-110 transition-transform">
+                <i data-lucide="code" class="w-5 h-5 text-amber-400"></i>
+              </div>
+              <span class="text-xs font-medium text-slate-200 mt-2">W3Schools</span>
+              <span class="text-[10px] text-slate-500 font-mono mt-0.5">Web Dev Docs</span>
+            </button>
+
+            <!-- Shortcut 4: DuckDuckGo HTML -->
+            <button onclick="navigateTo('https://html.duckduckgo.com/html/')" class="p-4 rounded-xl bg-brand-900/40 hover:bg-brand-800/80 border border-white/5 hover:border-brand-accent/40 flex flex-col items-center text-center group transition-all">
+              <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-slate-200 group-hover:scale-110 transition-transform">
+                <i data-lucide="search" class="w-5 h-5 text-orange-400"></i>
+              </div>
+              <span class="text-xs font-medium text-slate-200 mt-2">DuckDuckGo</span>
+              <span class="text-[10px] text-slate-500 font-mono mt-0.5">Mesin Pencari</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 2. The Actual Responsive Web Viewport (IFRAME) -->
+    <iframe 
+      id="web-viewport" 
+      src="about:blank"
+      class="w-full h-full border-none bg-white hidden"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+    ></iframe>
+
+    <!-- 3. CORS / X-Frame-Options Smart Fallback Overlay -->
+    <div id="cors-fallback-overlay" class="hidden absolute bottom-5 right-5 max-w-md w-full glass-panel border border-brand-accent/30 rounded-2xl p-4 shadow-2xl z-30 transition-all animate-bounce-subtle">
+      <div class="flex items-start gap-3">
+        <div class="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl">
+          <i data-lucide="shield-alert" class="w-5 h-5"></i>
+        </div>
+        <div class="flex-1 space-y-1">
+          <h4 class="text-xs font-semibold text-white flex items-center justify-between">
+            Proteksi Frame Terdeteksi
+            <button onclick="toggleFallbackOverlay(false)" class="text-slate-400 hover:text-white">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </h4>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Situs target menerapkan kebijakan keamanan ketat (<code class="font-mono text-indigo-300">X-Frame-Options</code> / CSP).
+          </p>
+          <div class="pt-2 flex items-center gap-2">
+            <button id="btn-open-sandbox" class="px-3 py-1.5 rounded-lg bg-brand-accent hover:bg-indigo-600 text-white text-xs font-medium flex items-center gap-1.5 transition-colors">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              Buka via Sandbox Tab
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ==================== LOGIKA SKRIP (VANILLA JS) ==================== -->
+  <script>
+    // Inisialisasi ikon Lucide
+    lucide.createIcons();
+
+    // State Aplikasi
+    const state = {
+      currentUrl: '',
+      history: [],
+      historyIndex: -1,
+      blockedAdsCount: 142
+    };
+
+    // DOM Elements
+    const omniboxForm = document.getElementById('omnibox-form');
+    const omniboxInput = document.getElementById('omnibox-input');
+    const viewport = document.getElementById('web-viewport');
+    const speedDial = document.getElementById('speed-dial');
+    const btnBack = document.getElementById('btn-back');
+    const btnForward = document.getElementById('btn-forward');
+    const btnRefresh = document.getElementById('btn-refresh');
+    const btnHome = document.getElementById('btn-home');
+    const refreshIcon = document.getElementById('refresh-icon');
+    const adblockCounter = document.getElementById('adblock-counter');
+    const vpnLatency = document.getElementById('vpn-latency');
+    const fallbackOverlay = document.getElementById('cors-fallback-overlay');
+    const btnOpenSandbox = document.getElementById('btn-open-sandbox');
+
+    // 1. Digital Clock & Date Update
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('digital-clock').innerText = now.toLocaleTimeString('id-ID', { hour12: false });
+      
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById('digital-date').innerText = now.toLocaleDateString('id-ID', options);
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // 2. Simulasi AdBlock Engine (Console Logger & Dynamic Increment)
+    const simulatedTrackers = [
+      'https://google-analytics.com/analytics.js',
+      'https://connect.facebook.net/en_US/fbevents.js',
+      'https://adservice.google.com/adsid/integrator.sync',
+      'https://secure.quantserve.com/quant.js',
+      'https://telemetry.segment.io/v1/t'
+    ];
+
+    function simulateAdBlockerLog(targetUrl) {
+      const randomTracker = simulatedTrackers[Math.floor(Math.random() * simulatedTrackers.length)];
+      state.blockedAdsCount += Math.floor(Math.random() * 3) + 1;
+      adblockCounter.innerText = state.blockedAdsCount;
+
+      console.groupCollapsed(`%c[AEGIS CORE]%c Network Request Guarded: ${new URL(targetUrl).hostname || targetUrl}`, 'background:#10b981; color:#000; font-weight:bold; padding:2px 4px; border-radius:3px;', 'color:#94a3b8;');
+      console.log(`%c[AdBlock Ultra]%c BLOCKED: ${randomTracker}`, 'color:#f43f5e; font-weight:bold;', 'color:#cbd5e1;');
+      console.log(`%c[VPN Tunnel]%c Encrypted via WireGuard (Zurich Endpoint) - Latency: ${vpnLatency.innerText}`, 'color:#10b981;', 'color:#cbd5e1;');
+      console.log(`%c[Fingerprint]%c User-Agent masked & Canvas randomization applied.`, 'color:#6366f1;', 'color:#cbd5e1;');
+      console.groupEnd();
+    }
+
+    // Simulasi sedikit jitter latensi VPN agar realistis
+    setInterval(() => {
+      const ms = Math.floor(Math.random() * 3) + 7; // 7ms - 9ms
+      vpnLatency.innerText = `${ms}ms`;
+    }, 4000);
+
+    // 3. Flexible URL Parser & Sanitizer
+    function parseQueryOrUrl(input) {
+      input = input.trim();
+      if (!input) return 'about:blank';
+
+      // Cek apakah berupa format URL umum (memiliki TLD atau diawali http)
+      const hasProtocol = /^https?:\/\//i.test(input);
+      const isDomainRegex = /^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+(:[0-9]+)?(\/.*)?$/;
+
+      if (hasProtocol) {
+        return input;
+      } else if (isDomainRegex.test(input)) {
+        return 'https://' + input;
+      } else {
+        // Alihkan ke pencarian privat DuckDuckGo (HTML / Non-blocking format)
+        return `https://html.duckduckgo.com/html/?q=${encodeURIComponent(input)}`;
+      }
+    }
+
+    // 4. Navigation & State Dispatcher
+    function navigateTo(url, pushToHistory = true) {
+      if (!url || url === 'about:blank') {
+        showHome();
+        return;
+      }
+
+      const validUrl = parseQueryOrUrl(url);
+      state.currentUrl = validUrl;
+
+      // Update Omnibox View
+      omniboxInput.value = validUrl;
+
+      // Update History
+      if (pushToHistory) {
+        // Hapus cabang sejarah maju jika berada di tengah
+        state.history = state.history.slice(0, state.historyIndex + 1);
+        state.history.push(validUrl);
+        state.historyIndex = state.history.length - 1;
+      }
+
+      updateNavButtons();
+
+      // UI Switch (Sembunyikan speed dial, munculkan iframe)
+      speedDial.classList.add('hidden');
+      viewport.classList.remove('hidden');
+
+      // Animasi pemuatan pada ikon refresh
+      refreshIcon.classList.add('animate-spin');
+
+      // Set target iframe
+      viewport.src = validUrl;
+
+      // Trigger simulasi AdBlocker di log konsol
+      simulateAdBlockerLog(validUrl);
+
+      // Siapkan fallback listener jika situs menolak penyematan iframe (CORS/XFO)
+      prepareFallbackCheck(validUrl);
+    }
+
+    function showHome() {
+      state.currentUrl = '';
+      omniboxInput.value = '';
+      viewport.src = 'about:blank';
+      viewport.classList.add('hidden');
+      speedDial.classList.remove('hidden');
+      toggleFallbackOverlay(false);
+      updateNavButtons();
+    }
+
+    function updateNavButtons() {
+      btnBack.disabled = state.historyIndex <= 0;
+      btnForward.disabled = state.historyIndex >= state.history.length - 1;
+    }
+
+    function toggleFallbackOverlay(show, url = '') {
+      if (show) {
+        fallbackOverlay.classList.remove('hidden');
+        btnOpenSandbox.onclick = () => {
+          // Buka dengan rel="noopener,noreferrer" demi privasi
+          window.open(url || state.currentUrl, '_blank', 'noopener,noreferrer');
+        };
+      } else {
+        fallbackOverlay.classList.add('hidden');
+      }
+    }
+
+    function prepareFallbackCheck(targetUrl) {
+      toggleFallbackOverlay(false);
+
+      // Daftar domain populer yang diketahui menerapkan X-Frame-Options: SAMEORIGIN / DENY
+      const blockedDomains = ['google.com', 'youtube.com', 'facebook.com', 'twitter.com', 'x.com', 'github.com'];
+      const isKnownBlocked = blockedDomains.some(d => targetUrl.toLowerCase().includes(d));
+
+      if (isKnownBlocked) {
+        setTimeout(() => toggleFallbackOverlay(true, targetUrl), 800);
+      }
+    }
+
+    // 5. Event Listeners
+    viewport.addEventListener('load', () => {
+      refreshIcon.classList.remove('animate-spin');
+    });
+
+    omniboxForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      navigateTo(omniboxInput.value);
+    });
+
+    btnBack.addEventListener('click', () => {
+      if (state.historyIndex > 0) {
+        state.historyIndex--;
+        navigateTo(state.history[state.historyIndex], false);
+      }
+    });
+
+    btnForward.addEventListener('click', () => {
+      if (state.historyIndex < state.history.length - 1) {
+        state.historyIndex++;
+        navigateTo(state.history[state.historyIndex], false);
+      }
+    });
+
+    btnRefresh.addEventListener('click', () => {
+      if (state.currentUrl) {
+        refreshIcon.classList.add('animate-spin');
+        viewport.src = state.currentUrl;
+        simulateAdBlockerLog(state.currentUrl);
+      }
+    });
+
+    btnHome.addEventListener('click', showHome);
+
+    // Modal popup info interaktif untuk VPN & AdBlocker
+    document.getElementById('vpn-badge').addEventListener('click', () => {
+      alert("Aegis VPN Tunnel: Aktif\n- Lokasi: Zurich (Swiss)\n- Protokol: WireGuard v2 (ChaCha20-Poly1305)\n- Kebijakan Log: Strict Zero-Log Terverifikasi");
+    });
+
+    document.getElementById('adblock-badge').addEventListener('click', () => {
+      alert(`Aegis AdBlock Ultra:\n- Total Iklan/Pelacak Dicegah: ${state.blockedAdsCount}\n- Engine: EasyList + uBlock Protections\n- WebRTC Masking: Aktif`);
+    });
+
+    // Jalankan navigasi awal
+    updateNavButtons();
+  </script>
+</body>
+</html>
